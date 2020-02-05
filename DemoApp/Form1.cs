@@ -55,51 +55,62 @@ namespace DemoApp
 
         private async void Button1_Click(object sender, EventArgs e)
         {
-            listBox2.Items.Clear();
-            listBox2.Items.Add(string.Format("{0}-{1}", "Unknown", colors[0]));
-            ListBox1_SelectedIndexChanged(null, null);
-            if (fn == null)
-                return;
-
-            using (Graphics gr = Graphics.FromImage(bm))
+            try
             {
-                using (Stream s = File.OpenRead(fn))
+                Cursor = Cursors.WaitCursor;
+                listBox2.Items.Clear();
+                listBox2.Items.Add(string.Format("{0}-{1}", "Unknown", colors[0]));
+                ListBox1_SelectedIndexChanged(null, null);
+                if (fn == null)
+                    return;
+
+                using (Graphics gr = Graphics.FromImage(bm))
                 {
-                    var faces = await faceClient.Face.DetectWithStreamAsync(s);
-                    var faceIds = faces.Select(face => face.FaceId.Value).ToArray();
-
-                    var results = await faceClient.Face.IdentifyAsync(faceIds, personGroupId);
-                    int cn = 1;
-                    foreach (var identifyResult in results)
+                    using (Stream s = File.OpenRead(fn))
                     {
-                        var rr = faces.Where(t => t.FaceId == identifyResult.FaceId).Select(t => t.FaceRectangle).ToArray();
-                        if (identifyResult.Candidates.Count == 0)
+                        var faces = await faceClient.Face.DetectWithStreamAsync(s);
+                        var faceIds = faces.Select(face => face.FaceId.Value).ToArray();
+
+                        var results = await faceClient.Face.IdentifyAsync(faceIds, personGroupId);
+                        int cn = 1;
+                        foreach (var identifyResult in results)
                         {
-                            foreach (var r in rr)
+                            var rr = faces.Where(t => t.FaceId == identifyResult.FaceId).Select(t => t.FaceRectangle).ToArray();
+                            if (identifyResult.Candidates.Count == 0)
                             {
-                                gr.DrawRectangle(pens[0], r.Left, r.Top, r.Width, r.Height);
+                                foreach (var r in rr)
+                                {
+                                    gr.DrawRectangle(pens[0], r.Left, r.Top, r.Width, r.Height);
+                                }
                             }
-                        }
-                        else
-                        {
-                            // Get top 1 among all candidates returned
-                            var candidateId = identifyResult.Candidates[0].PersonId;
-                            var person = await faceClient.PersonGroupPerson.GetAsync(personGroupId, candidateId);
-
-                            listBox2.Items.Add(string.Format("{0}-{1}",person.Name,colors[cn]));
-
-                            foreach (var r in rr)
+                            else
                             {
-                                gr.DrawRectangle(pens[cn], r.Left, r.Top, r.Width, r.Height);
-                            }
+                                // Get top 1 among all candidates returned
+                                var candidateId = identifyResult.Candidates[0].PersonId;
+                                var person = await faceClient.PersonGroupPerson.GetAsync(personGroupId, candidateId);
 
-                            cn++;
+                                listBox2.Items.Add(string.Format("{0}-{1}", person.Name, colors[cn]));
+
+                                foreach (var r in rr)
+                                {
+                                    gr.DrawRectangle(pens[cn], r.Left, r.Top, r.Width, r.Height);
+                                }
+
+                                cn++;
+                            }
                         }
                     }
                 }
             }
-
-            pictureBox1.Refresh();
+            catch (Exception ex)
+            {
+                MessageBox.Show(ex.Message, "Ошибка", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+            finally
+            {
+                pictureBox1.Refresh();
+                Cursor = Cursors.Default;
+            }
         }
     }
 }
